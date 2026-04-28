@@ -1,0 +1,73 @@
+# Database
+*.sqlite3
+db.sqlite3
+
+# Markdown files
+*.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django
+*.log
+local_settings.py
+
+# Environment variables
+# .env
+.venv
+
+# Zoho OAuth token cache — never commit, regenerated automatically from ZOHO_REFRESH_TOKEN
+zoho_tokens.json
+sales_module/zoho_tokens.json
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Lock files
+*.lock
+
+# Data files (uncomment if these contain sensitive data)
+# sales_module/data/*.csv
+# sales_module/data/*.json
+
+# Management commands and data folders
+sales_module/management/
+data2/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
