@@ -1,0 +1,4 @@
+081109 203518 143 ERROR dfs.DataNode$DataXceiver: Receiving block blk_-1608999 failed
+081109 203519 144 WARN dfs.DataNode: Block blk_-1608999 is corrupt on DataNode 10.250.19.102
+081109 203520 145 ERROR dfs.NameNode: Replication target unreachable for block blk_-1608999
+081109 203521 146 INFO dfs.DataNode: Attempting to recover block blk_-1608999

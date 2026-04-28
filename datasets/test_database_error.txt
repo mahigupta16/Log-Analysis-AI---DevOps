@@ -1,0 +1,6 @@
+[ERROR] 2024-04-28 11:00:01 - Connection pool exhausted: could not get connection from pool
+[ERROR] 2024-04-28 11:00:05 - FATAL: connection limit exceeded for non-replication role
+[ERROR] 2024-04-28 11:00:10 - Critical failure: Database timeout during transaction
+[ERROR] 2024-04-28 11:00:15 - Failed to reconnect to postgres-primary.svc.cluster.local
+[ERROR] 2024-04-28 11:00:20 - Operation failed after 3 retries
+[ERROR] 2024-04-28 11:00:25 - panic: runtime error: invalid memory address
