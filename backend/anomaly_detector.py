@@ -1,22 +1,29 @@
-import torch
-import torch.nn as nn
+try:
+    import torch
+    import torch.nn as nn
+except ModuleNotFoundError:  # optional dependency for LSTM model
+    torch = None
+    nn = None
 import pandas as pd
 import numpy as np
 import re
 import os
+import time
+from services.ai_assistant import ai_assistant_service
 
-class LSTMAutoencoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim):
-        super(LSTMAutoencoder, self).__init__()
-        self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.decoder = nn.LSTM(hidden_dim, input_dim, batch_first=True)
+if nn is not None:
+    class LSTMAutoencoder(nn.Module):
+        def __init__(self, input_dim, hidden_dim):
+            super().__init__()
+            self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+            self.decoder = nn.LSTM(hidden_dim, input_dim, batch_first=True)
 
-    def forward(self, x):
-        _, (hidden, _) = self.encoder(x)
-        seq_len = x.shape[1]
-        context = hidden.permute(1, 0, 2).repeat(1, seq_len, 1) 
-        output, _ = self.decoder(context)
-        return output
+        def forward(self, x):
+            _, (hidden, _) = self.encoder(x)
+            seq_len = x.shape[1]
+            context = hidden.permute(1, 0, 2).repeat(1, seq_len, 1)
+            output, _ = self.decoder(context)
+            return output
 
 def extract_features(log_path):
     with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -27,6 +34,11 @@ def extract_features(log_path):
     return [errors, cpu_mentions, disk_mentions], log
 
 def detect_anomaly(log_path):
+    if torch is None:
+        return {
+            "error": "PyTorch is not installed. Install it to enable the LSTM anomaly model (e.g. `pip install torch`)."
+        }
+
     model_path = 'models/lstm_model.pt'
     if not os.path.exists(model_path):
         return {"error": "Model not trained. Run ml_model.py first."}
@@ -79,8 +91,13 @@ def detect_anomaly(log_path):
             failed_node = "Auth-Service (v2.1)"
             fixes = ["Check recent deployments", "Increase pod replicas", "Verify auth provider", "Review GC logs"]
             flow = [{"node": "User Request", "status": "ok", "desc": "Request received"}, {"node": "API Gateway", "status": "failed", "desc": "Gateway Timeout (504)"}, {"node": "Auth Service", "status": "failed", "desc": "Internal Latency > 5000ms"}, {"node": "Order Service", "status": "ok", "desc": "Awaiting dependency"}, {"node": "Database Call", "status": "ok", "desc": "Ready"}]
-        
         resp.update({"detected_issue": issue, "failed_node": failed_node, "why_it_failed": reason, "possible_fixes": fixes, "flow": flow})
+        
+        # Get AI explanation
+        print("[INFO] Calling AI Assistant to explain anomaly...")
+        ai_explanation = ai_assistant_service.explain_log(raw_log)
+        resp["ai_explanation"] = ai_explanation
+        resp["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
     else:
         resp.update({
             "detected_issue": "System Health: Optimal", 

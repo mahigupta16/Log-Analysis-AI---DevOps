@@ -11,6 +11,7 @@ import HistoryTimeline from './HistoryTimeline';
 import LogDataFlow from './LogDataFlow';
 import ChatWindow from './ChatWindow';
 import AnalysisLoader from './AnalysisLoader';
+import { LogAssistant } from './components/LogAssistant';
 import { AnomalyResponse, HistoryItem } from './types';
 
 const App: React.FC = () => {
@@ -84,7 +85,7 @@ const App: React.FC = () => {
                     </div>
                     <div>
                         {result ? (
-                            <AnomalyCard status={result.status} confidence={result.confidence} />
+                            <AnomalyCard status={result.status} confidence={result.confidence} aiExplanation={result.ai_explanation} />
                         ) : (
                             <div className="bg-[#161b22] border-2 border-dashed border-[#30363d] rounded-[2rem] p-8 h-full flex flex-col items-center justify-center text-center">
                                 <Activity className="w-12 h-12 text-dark-muted mb-4 animate-pulse" />
@@ -159,6 +160,13 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {/* 6. AI Log Assistant */}
+                <div className="grid grid-cols-1 gap-10 animate-in fade-in duration-700 mt-10">
+                    <div className="h-[600px]">
+                        <LogAssistant />
+                    </div>
+                </div>
 
                 {!result && !isUploading && (
                     <div className="flex flex-col items-center justify-center py-32 text-center space-y-8">

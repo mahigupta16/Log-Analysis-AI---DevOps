@@ -17,23 +17,23 @@ def train_hdfs_model():
     os.makedirs('models', exist_ok=True)
 
     # ── Load Data ──────────────────────────────────────────────
-    print("🚀 Loading HDFS dataset...")
+    print("START Loading HDFS dataset...")
     
     if not os.path.exists(FEATURES_PATH) or not os.path.exists(LABELS_PATH):
-        print(f"❌ Error: Dataset files not found at {FEATURES_PATH} or {LABELS_PATH}")
+        print(f"ERROR: Dataset files not found at {FEATURES_PATH} or {LABELS_PATH}")
         print("Please ensure you have added Event_occurrence_matrix.csv and anomaly_label.csv to datasets/hdfs/")
         return
 
     # Load features
-    print("读取特征矩阵 (Reading features)...")
+    print("Reading features matrix...")
     X_df = pd.read_csv(FEATURES_PATH)
     
     # Load labels
-    print("读取标签 (Reading labels)...")
+    print("Reading labels...")
     y_df = pd.read_csv(LABELS_PATH)
 
     # ── Align Data ──────────────────────────────────────────────
-    print("🔄 Aligning features and labels by BlockId...")
+    print("Aligning features and labels by BlockId...")
     # The occurrence matrix has BlockId. anomaly_label.csv also has BlockId.
     # We merge them to ensure every feature row has a corresponding label.
     data = pd.merge(X_df, y_df, on='BlockId')
@@ -45,13 +45,13 @@ def train_hdfs_model():
     X = data[feature_cols]
     y = data['Label_y'] # Use the label from anomaly_label.csv (merged as Label_y)
 
-    print(f"✅ Data alignment complete.")
+    print(f"OK Data alignment complete.")
     print(f"Total samples: {len(X)}")
     print(f"Anomaly counts:\n{y.value_counts()}")
 
     # ── Split into Train and Test ───────────────────────────────
     # 80% training, 20% testing
-    print("\n📦 Splitting data into Train (80%) and Test (20%)...")
+    print("\nSplitting data into Train (80%) and Test (20%)...")
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, 
         test_size=0.2, 
@@ -63,28 +63,28 @@ def train_hdfs_model():
     print(f"Testing samples:  {len(X_test)}")
 
     # ── Train the Model ─────────────────────────────────────────
-    print("\n🏗️ Training Random Forest model (this might take a moment)...")
+    print("\nBUILD Training Random Forest model (this might take a moment)...")
     # Using n_jobs=-1 to use all CPU cores for faster training
     model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
     model.fit(X_train, y_train)
-    print("⭐ Training complete!")
+    print("OK Training complete!")
 
     # ── Test the Model ──────────────────────────────────────────
-    print("\n🧪 Evaluating model on Test Dataset (unseen data)...")
+    print("\nEvaluating model on Test Dataset (unseen data)...")
     y_pred = model.predict(X_test)
 
     # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)
     train_accuracy = model.score(X_train, y_train)
 
-    print(f"\n📈 Results:")
-    print(f"✅ Training Accuracy: {train_accuracy * 100:.2f}%")
-    print(f"✅ Testing Accuracy:  {accuracy * 100:.2f}%")
+    print("\nResults:")
+    print(f"OK Training Accuracy: {train_accuracy * 100:.2f}%")
+    print(f"OK Testing Accuracy:  {accuracy * 100:.2f}%")
 
-    print("\n── Detailed Classification Report ──")
+    print("\n-- Detailed Classification Report --")
     print(classification_report(y_test, y_pred))
 
-    print("── Confusion Matrix ──")
+    print("-- Confusion Matrix --")
     cm = confusion_matrix(y_test, y_pred)
     print(f"True Normal  (correct): {cm[0][0]}")
     print(f"False Anomaly (wrong):  {cm[0][1]}")
@@ -92,13 +92,13 @@ def train_hdfs_model():
     print(f"True Anomaly (correct): {cm[1][1]}")
 
     # ── Save the Model ──────────────────────────────────────────
-    print(f"\n💾 Saving model to {MODEL_SAVE_PATH}...")
+    print(f"\nSaving model to {MODEL_SAVE_PATH}...")
     with open(MODEL_SAVE_PATH, 'wb') as f:
         pickle.dump({
             'model': model,
             'feature_cols': feature_cols
         }, f)
-    print("✅ Model saved successfully!")
+    print("OK Model saved successfully!")
     print("\nYou can now use this model for predictions!")
 
 if __name__ == '__main__':

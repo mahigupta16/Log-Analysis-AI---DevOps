@@ -33,8 +33,9 @@ MANIFEST
 local_settings.py
 
 # Environment variables
-# .env
+.env
 .venv
+venv311/
 
 # Zoho OAuth token cache — never commit, regenerated automatically from ZOHO_REFRESH_TOKEN
 zoho_tokens.json
