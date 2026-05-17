@@ -90,7 +90,7 @@ def train_model():
         
     os.makedirs('models', exist_ok=True)
     torch.save({'model_state': model.state_dict(), 'scaler': scaler, 'threshold': threshold, 'input_dim': X_train.shape[2], 'hidden_dim': 16}, 'models/lstm_model.pt')
-    print(f"✅ Training Complete! Total samples: {len(all_features)}")
+    print(f"DONE Training Complete! Total samples: {len(all_features)}")
 
 if __name__ == '__main__':
     train_model()

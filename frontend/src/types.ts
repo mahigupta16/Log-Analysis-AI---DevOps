@@ -20,6 +20,8 @@ export interface AnomalyResponse {
     };
     filename?: string;
     raw_log?: string;
+    ai_explanation?: string;
+    time?: string;
 }
 
 export interface HistoryItem {
