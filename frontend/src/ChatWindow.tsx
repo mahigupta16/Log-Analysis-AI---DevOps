@@ -54,7 +54,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, logContext, an
         setIsLoading(true);
 
         try {
-            const response = await axios.post('http://localhost:5000/chat', {
+            const response = await axios.post('http://localhost:5000/ai/chat', {
                 message: userMsg,
                 context: {
                     log: logContext.slice(0, 3000),

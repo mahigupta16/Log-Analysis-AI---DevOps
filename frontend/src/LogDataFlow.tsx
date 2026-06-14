@@ -4,9 +4,10 @@ import { FileText, Search, Database, Fingerprint, Activity, ArrowRight, AlertTri
 interface LogDataFlowProps {
     filename: string;
     metrics: { errors: number; cpu: number; disk: number };
+    onStepClick?: (stepId: string) => void;
 }
 
-const LogDataFlow: React.FC<LogDataFlowProps> = ({ filename, metrics }) => {
+const LogDataFlow: React.FC<LogDataFlowProps> = ({ filename, metrics, onStepClick }) => {
     const hasErrors = metrics.errors > 0;
     const hasHighCpu = metrics.cpu > 5;
     const hasDiskIssues = metrics.disk > 5;
@@ -93,15 +94,18 @@ const LogDataFlow: React.FC<LogDataFlowProps> = ({ filename, metrics }) => {
             <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
                 {steps.map((step, index) => (
                     <React.Fragment key={step.id}>
-                        <div className="flex flex-col items-center gap-6 group">
-                            <div className={`w-24 h-24 rounded-3xl ${step.bg} border-2 border-[#30363d] flex items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-2xl ${step.glow} ${step.animate}`}>
+                        <div 
+                            onClick={() => onStepClick && onStepClick(step.id)}
+                            className="flex flex-col items-center gap-6 group cursor-pointer"
+                        >
+                            <div className={`w-24 h-24 rounded-3xl ${step.bg} border-2 border-[#30363d] group-hover:border-blue-500/80 flex items-center justify-center transition-all duration-500 group-hover:scale-110 shadow-2xl ${step.glow} ${step.animate}`}>
                                 <div className={`${step.color} transition-transform group-hover:rotate-6`}>
                                     {step.icon}
                                 </div>
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-black text-white uppercase tracking-tight">{step.name}</p>
-                                <div className="mt-2 inline-block bg-[#0d1117] px-3 py-1.5 rounded-lg border border-[#30363d] shadow-inner">
+                                <p className="text-sm font-black text-white uppercase tracking-tight group-hover:text-blue-400 transition-colors">{step.name}</p>
+                                <div className="mt-2 inline-block bg-[#0d1117] px-3 py-1.5 rounded-lg border border-[#30363d] shadow-inner group-hover:border-blue-500/30 transition-colors">
                                     <p className={`text-[10px] font-mono font-bold ${step.id === 'features' && hasErrors ? 'text-red-500' : 'text-dark-muted'}`}>
                                         {step.detail}
                                     </p>

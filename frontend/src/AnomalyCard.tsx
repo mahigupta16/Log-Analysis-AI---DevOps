@@ -62,16 +62,6 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({ status, confidence, aiExplana
                     <><CheckCircle className="w-4 h-4" /> Normal Operation</>
                 )}
             </div>
-            {aiExplanation && isAnomaly && (
-                <div className="mt-6 p-4 bg-[#24283b] border border-gray-700 rounded-lg w-full text-left overflow-y-auto max-h-64 scrollbar-thin scrollbar-thumb-gray-600">
-                    <h3 className="text-sm font-bold text-gray-300 mb-2 uppercase tracking-wider">AI Automated Diagnostic</h3>
-                    <div className="text-sm text-gray-300 prose prose-invert prose-sm max-w-none prose-pre:bg-[#1a1b26] prose-pre:border prose-pre:border-gray-800">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {aiExplanation}
-                        </ReactMarkdown>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

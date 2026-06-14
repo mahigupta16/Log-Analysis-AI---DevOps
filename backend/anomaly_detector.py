@@ -33,6 +33,104 @@ def extract_features(log_path):
     disk_mentions = len(re.findall(r'disk|full|storage|block|dfs|datanode', log, re.IGNORECASE))
     return [errors, cpu_mentions, disk_mentions], log
 
+def analyze_log_content(log_content):
+    lines = log_content.split('\n')
+    error_lines = []
+    nodes = set()
+    components = set()
+    parsed_logs_list = []
+    
+    # Common node name patterns
+    node_patterns = [
+        r'\b(?:node|server|host|pod|vm|cluster|db|master|slave|replica)-[a-zA-Z0-9_-]+\b',
+        r'\b[a-zA-Z0-9_-]+-(?:node|server|host|pod|vm|db|master|slave|replica|service|datanode|namenode)\b',
+        r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
+    ]
+    
+    syslog_pattern = r'\b([a-zA-Z0-9_\-\.]+)(?:\[\d+\])?\s*:'
+    hdfs_pattern = r'\b(dfs\.[a-zA-Z0-9_\$]+)\b'
+    
+    for idx, line in enumerate(lines):
+        line_num = idx + 1
+        if not line.strip():
+            continue
+            
+        # Check for errors/warnings
+        is_err = any(word in line.lower() for word in ['error', 'fail', 'panic', 'critical', 'exception', 'fatal', 'failed'])
+        is_warn = any(word in line.lower() for word in ['warn', 'warning'])
+        
+        # Extract nodes
+        for pat in node_patterns:
+            matches = re.findall(pat, line, re.IGNORECASE)
+            for m in matches:
+                nodes.add(m)
+                
+        # Extract components
+        line_comp = "system"
+        m_sys = re.search(syslog_pattern, line)
+        if m_sys:
+            comp = m_sys.group(1)
+            if not comp.isdigit() and comp.lower() not in ['error', 'warn', 'info', 'debug', 'fail', 'panic', 'critical', 'exception', 'fatal', 'failed']:
+                components.add(comp)
+                line_comp = comp
+        
+        m_hdfs = re.search(hdfs_pattern, line, re.IGNORECASE)
+        if m_hdfs:
+            components.add(m_hdfs.group(1))
+            line_comp = m_hdfs.group(1)
+            
+        for word in ['kernel', 'systemd', 'sshd', 'postgres', 'mysql', 'docker', 'kubelet', 'nginx', 'apache', 'cron', 'mongodb', 'redis', 'dfs']:
+            if word in line.lower():
+                components.add(word)
+                line_comp = word
+                
+        severity = "INFO"
+        if is_err:
+            severity = "CRITICAL"
+        elif is_warn:
+            severity = "WARNING"
+            
+        parsed_logs_list.append({
+            "line": line_num,
+            "content": line.strip(),
+            "severity": severity,
+            "component": line_comp
+        })
+        
+        if is_err:
+            error_lines.append(line.strip())
+            
+    extracted_nodes = list(nodes)
+    extracted_comps = list(components)
+    
+    # Check for hostname in typical syslog format (field 4)
+    if not extracted_nodes:
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 4 and parts[0] in ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']:
+                cand = parts[3].rstrip(':')
+                if cand not in extracted_nodes and not any(w in cand.lower() for w in ['error', 'fail', 'warn', 'info']):
+                    extracted_nodes.append(cand)
+                    break
+                    
+    if not extracted_nodes:
+        if "dfs" in log_content.lower() or "datanode" in log_content.lower():
+            extracted_nodes = ["HDFS-DataNode-01"]
+        elif "postgres" in log_content.lower() or "sql" in log_content.lower():
+            extracted_nodes = ["PostgreSQL-Master"]
+        else:
+            extracted_nodes = ["Localhost-Server"]
+            
+    if not extracted_comps:
+        if "dfs" in log_content.lower() or "datanode" in log_content.lower():
+            extracted_comps = ["dfs.DataNode", "dfs.NameNode"]
+        elif "postgres" in log_content.lower() or "sql" in log_content.lower():
+            extracted_comps = ["postgres", "connection_pool"]
+        else:
+            extracted_comps = ["systemd", "kernel"]
+            
+    return error_lines, extracted_nodes, extracted_comps, parsed_logs_list
+
 def detect_anomaly(log_path):
     if torch is None:
         return {
@@ -59,38 +157,125 @@ def detect_anomaly(log_path):
         reconstructed = model(input_tensor)
         error = torch.mean((reconstructed - input_tensor)**2).item()
 
-    is_anomaly = error > threshold
-    confidence = min(99.9, 70 + (error / threshold) * 10) if is_anomaly else min(99.9, 90 + (1 - error/threshold) * 5)
+    # Hybrid anomaly detection: True if LSTM reconstruction error exceeds threshold OR if the log contains explicit error messages (heuristic fallback)
+    is_anomaly = (error > threshold) or (features[0] > 0)
     
-    is_hdfs = "dfs" in raw_log.lower() or "datanode" in raw_log.lower() or "block" in raw_log.lower()
-
+    # Calculate confidence based on error or error presence
+    if is_anomaly:
+        if error > threshold:
+            confidence = min(99.9, 70.0 + (error / threshold) * 10.0)
+        else:
+            # High error keyword count fallback
+            confidence = min(99.9, 85.0 + (features[0] * 5.0))
+    else:
+        confidence = min(99.9, 90.0 + (1.0 - error/threshold) * 5.0)
+    
+    # Extract detailed elements from the log contents
+    error_lines, extracted_nodes, extracted_comps, parsed_logs_list = analyze_log_content(raw_log)
+    primary_node = extracted_nodes[0] if extracted_nodes else "Unknown Node"
+    primary_comp = extracted_comps[0] if extracted_comps else "Unknown Component"
+    
     # Base response
     resp = {
         "status": "anomaly" if is_anomaly else "normal",
         "confidence": round(confidence, 1),
+        "reconstruction_error": round(error, 6),
+        "threshold": round(threshold, 6),
         "features": {"errors": features[0], "cpu": features[1], "disk": features[2]},
-        "filename": os.path.basename(log_path)
+        "filename": os.path.basename(log_path),
+        "total_lines_scanned": len(raw_log.split('\n')),
+        "error_lines_count": len(error_lines),
+        "parsed_logs": parsed_logs_list[:500]
     }
 
     if is_anomaly:
-        if is_hdfs:
+        # Match issues based on keywords
+        if "dfs" in raw_log.lower() or "datanode" in raw_log.lower() or "block" in raw_log.lower():
             issue = "Distributed File System - Block Replication Critical Failure"
-            reason = "The LSTM model detected a significant deviation in the HDFS log stream. The DataNode heartbeat is missing or delayed, causing the NameNode to flag block replication as UNDER_REPLICATED."
-            failed_node = "HDFS-DataNode-01"
-            fixes = ["Verify network connectivity", "Inspect DataNode logs", "Execute hdfs dfsadmin -report", "Check system-level I/O"]
-            flow = [{"node": "User Request", "status": "ok", "desc": "Ingress stable"}, {"node": "API Gateway", "status": "ok", "desc": "Routing active"}, {"node": "HDFS NameNode", "status": "ok", "desc": "Metadata master active"}, {"node": "HDFS DataNode", "status": "failed", "desc": "IO Timeout / Disconnected"}, {"node": "Block Replication", "status": "failed", "desc": "Sync Interrupted"}]
-        elif features[0] > 5:
+            reason = "The log indicates a critical block replication or heartbeat failure in the HDFS cluster. DataNode heartbeat is missing or delayed, causing replication sync to interrupt."
+            failed_node = primary_node if "HDFS" in primary_node or primary_node != "Localhost-Server" else "HDFS-DataNode-01"
+            fixes = [
+                "Verify network connectivity between NameNode and DataNodes",
+                "Inspect DataNode logs for sector read/write failures",
+                "Execute: hdfs dfsadmin -report to check live status",
+                "Check disk volume mount spaces on the storage servers"
+            ]
+            flow = [
+                {"node": "User Request", "status": "ok", "desc": "Ingress stable"},
+                {"node": "API Gateway", "status": "ok", "desc": "Routing active"},
+                {"node": "HDFS NameNode", "status": "ok", "desc": "Metadata active"},
+                {"node": failed_node, "status": "failed", "desc": (error_lines[0][:40] + "...") if error_lines else "Timeout"},
+                {"node": "Block Replication", "status": "failed", "desc": "Sync Interrupted"}
+            ]
+        elif "postgres" in raw_log.lower() or "mysql" in raw_log.lower() or "sql" in raw_log.lower() or "connection" in raw_log.lower():
             issue = "Database Connection Pool Exhaustion (Resource Contention)"
-            reason = "Anomaly analysis indicates a severe spike in SQL connection errors. The application is unable to acquire a new connection from the HikariCP pool."
-            failed_node = "PostgreSQL-Master"
-            fixes = ["Increase max_connections", "Analyze pg_stat_activity", "Verify session closing", "Scale out DB layer"]
-            flow = [{"node": "User Request", "status": "ok", "desc": "Traffic normal"}, {"node": "API Gateway", "status": "ok", "desc": "Forwarding"}, {"node": "Auth Service", "status": "ok", "desc": "JWT Verified"}, {"node": "Order Service", "status": "ok", "desc": "Logic executing"}, {"node": "Database Call", "status": "failed", "desc": "Connection Pool Exhausted"}]
+            reason = "The system has exhausted SQL connection pools or encountered query timeouts. No active connections remain in the connection manager pool."
+            failed_node = primary_node if "postgres" in primary_node.lower() or primary_node != "Localhost-Server" else "PostgreSQL-Master"
+            fixes = [
+                "Increase max_connections in database server config",
+                "Run pg_stat_activity to check lock contentions and long running queries",
+                "Verify code closes DB connections in finally blocks",
+                "Scale up database server CPU / Memory profile"
+            ]
+            flow = [
+                {"node": "User Request", "status": "ok", "desc": "Traffic stable"},
+                {"node": "API Gateway", "status": "ok", "desc": "Forwarding"},
+                {"node": "Order Service", "status": "ok", "desc": "Running"},
+                {"node": failed_node, "status": "failed", "desc": (error_lines[0][:40] + "...") if error_lines else "Pool Exhausted"},
+                {"node": "Replica Sync", "status": "ok", "desc": "Healthy"}
+            ]
+        elif "ssh" in raw_log.lower() or "auth" in raw_log.lower() or "login" in raw_log.lower() or "unauthorized" in raw_log.lower():
+            issue = "Authentication Security alert (Multiple Login Failures)"
+            reason = "Repeated authentication failures detected in authentication logs. This could indicate a credential stuffing or brute force attack."
+            failed_node = primary_node
+            fixes = [
+                "Block the offending client IP via iptables or fail2ban",
+                "Review sshd_config and disable password authentication (use keys only)",
+                "Audit security log trace in /var/log/auth.log",
+                "Enforce rate limiting on login/auth entrypoints"
+            ]
+            flow = [
+                {"node": "External Client", "status": "ok", "desc": "Ingress Connected"},
+                {"node": "Firewall Rule", "status": "ok", "desc": "Evaluating"},
+                {"node": "sshd Service", "status": "failed", "desc": (error_lines[0][:40] + "...") if error_lines else "Login Failed"},
+                {"node": failed_node, "status": "ok", "desc": "Audit Logging"},
+                {"node": "SIEM Dashboard", "status": "failed", "desc": "Intrusion Alert"}
+            ]
+        elif "disk" in raw_log.lower() or "storage" in raw_log.lower() or "full" in raw_log.lower() or "space" in raw_log.lower():
+            issue = "Storage Capacity Exhaustion / Write Sector Failure"
+            reason = "A host has run out of disk space on a primary write volume or encounters write sector errors."
+            failed_node = primary_node
+            fixes = [
+                "Free up space by deleting older system caches/log archives",
+                "Identify directory disk usage using: du -sh * | sort -h",
+                "Check disk mount filesystem integrity using fsck",
+                "Attach a new block storage volume and extend partitions"
+            ]
+            flow = [
+                {"node": "Write Request", "status": "ok", "desc": "Buffered"},
+                {"node": "Storage Mount", "status": "ok", "desc": "Ext4 Mounted"},
+                {"node": "Block Manager", "status": "ok", "desc": "Active"},
+                {"node": failed_node, "status": "failed", "desc": (error_lines[0][:40] + "...") if error_lines else "Disk Full"},
+                {"node": "Syslog Agent", "status": "failed", "desc": "Write IO Blocked"}
+            ]
         else:
-            issue = "Microservice Latency & Circuit Breaker Trigger"
-            reason = "The system detected an abnormal increase in service latency. This triggered the circuit breaker to prevent a cascading failure."
-            failed_node = "Auth-Service (v2.1)"
-            fixes = ["Check recent deployments", "Increase pod replicas", "Verify auth provider", "Review GC logs"]
-            flow = [{"node": "User Request", "status": "ok", "desc": "Request received"}, {"node": "API Gateway", "status": "failed", "desc": "Gateway Timeout (504)"}, {"node": "Auth Service", "status": "failed", "desc": "Internal Latency > 5000ms"}, {"node": "Order Service", "status": "ok", "desc": "Awaiting dependency"}, {"node": "Database Call", "status": "ok", "desc": "Ready"}]
+            # General service failure
+            issue = f"System Service Anomaly ({primary_comp.upper()} Fail)"
+            reason = f"LSTM neural network detected an abnormal error pattern in service {primary_comp}. Line details: " + (error_lines[0] if error_lines else "No explicit error details.")
+            failed_node = primary_node
+            fixes = [
+                f"Restart the crashed service: systemctl restart {primary_comp}",
+                f"Inspect service details using: journalctl -u {primary_comp} -n 50",
+                "Check CPU load averages and system RAM utilization",
+                "Review recent software package deployments and configuration alterations"
+            ]
+            flow = [
+                {"node": "User Request", "status": "ok", "desc": "Stable Traffic"},
+                {"node": "API Gateway", "status": "ok", "desc": "Routing"},
+                {"node": primary_comp, "status": "failed", "desc": (error_lines[0][:40] + "...") if error_lines else "Service Crash"},
+                {"node": failed_node, "status": "ok", "desc": "Kernel Active"},
+                {"node": "Metric Collector", "status": "ok", "desc": "Online"}
+            ]
         resp.update({"detected_issue": issue, "failed_node": failed_node, "why_it_failed": reason, "possible_fixes": fixes, "flow": flow})
         
         # Get AI explanation
@@ -99,12 +284,22 @@ def detect_anomaly(log_path):
         resp["ai_explanation"] = ai_explanation
         resp["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
     else:
+        # Healthy status - but dynamically show scanned metrics and nodes instead of generic string
+        scanned_lines = len(raw_log.split('\n'))
+        comps_str = ", ".join(extracted_comps[:3]) if extracted_comps else "standard system components"
+        
         resp.update({
             "detected_issue": "System Health: Optimal", 
-            "failed_node": "N/A", 
-            "why_it_failed": "No reconstruction errors were found above the threshold. All services are operating within performance baselines.", 
+            "failed_node": "None (Healthy)", 
+            "why_it_failed": f"Analyzed {scanned_lines} log lines on node '{primary_node}'. Monitored services [{comps_str}] are operating within baseline parameters. No deviations were flagged by LSTM.", 
             "possible_fixes": [], 
-            "flow": [{"node": "User Request", "status": "ok", "desc": "Healthy"}, {"node": "API Gateway", "status": "ok", "desc": "Healthy"}, {"node": "Auth Service", "status": "ok", "desc": "Healthy"}, {"node": "Order Service", "status": "ok", "desc": "Healthy"}, {"node": "Database Call", "status": "ok", "desc": "Healthy"}]
+            "flow": [
+                {"node": "User Request", "status": "ok", "desc": "Healthy Traffic"},
+                {"node": "API Gateway", "status": "ok", "desc": "Routing Ok"},
+                {"node": primary_node, "status": "ok", "desc": "Online"},
+                {"node": primary_comp, "status": "ok", "desc": "Active"},
+                {"node": "Database Call", "status": "ok", "desc": "Healthy Response"}
+            ]
         })
     
     return resp

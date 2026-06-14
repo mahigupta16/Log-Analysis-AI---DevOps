@@ -22,6 +22,14 @@ export interface AnomalyResponse {
     raw_log?: string;
     ai_explanation?: string;
     time?: string;
+    total_lines_scanned?: number;
+    error_lines_count?: number;
+    parsed_logs?: {
+        line: number;
+        content: string;
+        severity: 'INFO' | 'WARNING' | 'CRITICAL';
+        component: string;
+    }[];
 }
 
 export interface HistoryItem {
