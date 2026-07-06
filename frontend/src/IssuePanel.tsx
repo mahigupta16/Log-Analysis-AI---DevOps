@@ -9,7 +9,7 @@ interface IssuePanelProps {
 
 const IssuePanel: React.FC<IssuePanelProps> = ({ issue, node, reason }) => {
     return (
-        <div className="bg-[#161b22] border-2 border-[#30363d] rounded-2xl p-8 h-full shadow-2xl transition-all hover:border-blue-500/30">
+        <div className="bg-[#161b22] border-2 border-[#30363d] rounded-2xl p-8 h-full w-full shadow-2xl transition-all hover:border-blue-500/30 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                     <div className="bg-blue-500/10 p-2 rounded-lg">

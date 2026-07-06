@@ -22,6 +22,9 @@ export interface AnomalyResponse {
     raw_log?: string;
     ai_explanation?: string;
     time?: string;
+    id?: string;
+    timestamp?: string;
+    model_used?: string;
     total_lines_scanned?: number;
     error_lines_count?: number;
     parsed_logs?: {

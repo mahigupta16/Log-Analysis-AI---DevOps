@@ -20,7 +20,7 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({ status, confidence, aiExplana
     const offset = circumference - (confidence / 100) * circumference;
 
     return (
-        <div className={`bg-[#161b22] border rounded-xl p-6 flex flex-col items-center justify-center gap-4 transition-all duration-300
+        <div className={`bg-[#161b22] border-2 border-[#30363d] rounded-2xl p-8 h-full w-full flex flex-col items-center justify-between gap-6 transition-all duration-300 shadow-2xl hover:border-blue-500/30
             ${isAnomaly ? 'border-red-500/50 shadow-[0_0_20px_rgba(248,81,73,0.1)]' : 'border-green-500/50 shadow-[0_0_20px_rgba(46,160,67,0.1)]'}`}>
             
             <h2 className="text-lg font-semibold text-white">Anomaly Status</h2>
