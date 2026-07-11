@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ML Model Comparison — Log Analysis AI DevOps</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #060c18;
+      --surface:  #0d1526;
+      --surface2: #111f35;
+      --surface3: #162540;
+      --border:   #1e3052;
+      --accent:   #3b82f6;
+      --purple:   #8b5cf6;
+      --cyan:     #06b6d4;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --text:     #e2e8f0;
+      --dim:      #94a3b8;
+      --muted:    #475569;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── animated bg ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 20%, rgba(59,130,246,.08), transparent),
+        radial-gradient(ellipse 60% 40% at 85% 80%, rgba(139,92,246,.07), transparent),
+        radial-gradient(ellipse 50% 60% at 50% 50%, rgba(6,182,212,.04), transparent);
+      pointer-events: none;
+    }
+
+    .page { position: relative; z-index: 1; }
+
+    /* ── HEADER ── */
+    header {
+      padding: 3rem 4rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(13,21,38,.95) 0%, transparent 100%);
+      text-align: center;
+    }
+
+    .project-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .4rem 1.2rem; border-radius: 999px;
+      background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.3);
+      color: #93c5fd; font-size: .78rem; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 1.4rem;
+    }
+    .project-badge span { width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+
+    header h1 {
+      font-size: 2.8rem; font-weight: 900; line-height: 1.15;
+      background: linear-gradient(135deg, #e0f2fe 0%, #a5b4fc 40%, #818cf8 70%, #67e8f9 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: .6rem;
+    }
+    header h2 {
+      font-size: 1.1rem; font-weight: 400; color: var(--dim);
+      letter-spacing: .02em;
+    }
+
+    .stats-row {
+      display: flex; justify-content: center; gap: 2rem;
+      margin-top: 2rem; flex-wrap: wrap;
+    }
+    .stat {
+      display: flex; flex-direction: column; align-items: center;
+      padding: .9rem 1.6rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: .75rem; min-width: 110px;
+    }
+    .stat-num { font-size: 1.8rem; font-weight: 800; color: #818cf8; }
+    .stat-lbl { font-size: .72rem; color: var(--dim); text-transform: uppercase; letter-spacing: .07em; margin-top: .2rem; }
+
+    /* ── LEGEND ── */
+    .legend-bar {
+      display: flex; justify-content: center; gap: 2rem;
+      padding: 1rem 4rem; flex-wrap: wrap;
+      background: rgba(22,37,64,.6); border-bottom: 1px solid var(--border);
+    }
+    .leg { display: flex; align-items: center; gap: .5rem; font-size: .83rem; color: var(--dim); }
+    .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .ld-selected { background: #10b981; box-shadow: 0 0 8px #10b98180; }
+    .ld-rejected  { background: #ef4444; box-shadow: 0 0 8px #ef444460; }
+    .ld-ml  { background: #3b82f6; }
+    .ld-dl  { background: #8b5cf6; }
+
+    /* ── TABLE CONTAINER ── */
+    .table-wrap {
+      padding: 2.5rem 3rem;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ── TABLE ── */
+    .model-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 10px;
+    }
+
+    /* header row */
+    .model-table thead tr th {
+      background: var(--surface3);
+      color: #7dd3fc;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .9rem 1.2rem;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .model-table thead tr th:first-child { border-left: 1px solid var(--border); border-radius: .6rem 0 0 .6rem; padding-left: 1.6rem; }
+    .model-table thead tr th:last-child  { border-right: 1px solid var(--border); border-radius: 0 .6rem .6rem 0; padding-right: 1.6rem; }
+
+    /* data rows */
+    .model-table tbody tr {
+      transition: transform .2s ease, box-shadow .2s ease;
+      cursor: default;
+    }
+    .model-table tbody tr:hover { transform: translateY(-2px); }
+    .model-table tbody tr:hover td { border-color: rgba(139,92,246,.4); }
+
+    .model-table tbody tr td {
+      background: var(--surface2);
+      padding: 1.1rem 1.2rem;
+      font-size: .88rem;
+      color: var(--dim);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      transition: border-color .2s;
+    }
+    .model-table tbody tr td:first-child {
+      border-left: 1px solid var(--border);
+      border-radius: .8rem 0 0 .8rem;
+      padding-left: 1.4rem;
+    }
+    .model-table tbody tr td:last-child {
+      border-right: 1px solid var(--border);
+      border-radius: 0 .8rem .8rem 0;
+      padding-right: 1.4rem;
+    }
+
+    /* selected rows */
+    .row-selected td {
+      background: linear-gradient(135deg, rgba(16,185,129,.08) 0%, rgba(6,182,212,.06) 100%) !important;
+      border-color: rgba(16,185,129,.35) !important;
+    }
+    .row-selected td:first-child { border-left-color: #10b981 !important; border-left-width: 3px; }
+    .row-selected:hover td { border-color: rgba(16,185,129,.5) !important; }
+
+    /* rejected rows */
+    .row-rejected td {
+      background: rgba(15,23,42,.6) !important;
+      border-color: var(--border) !important;
+      opacity: .88;
+    }
+    .row-rejected td:first-child { border-left-color: rgba(100,116,139,.4) !important; border-left-width: 2px; }
+
+    /* model name cell */
+    .model-name {
+      display: flex; align-items: flex-start; gap: .75rem;
+    }
+    .model-icon {
+      width: 38px; height: 38px; border-radius: .5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0; margin-top: .05rem;
+    }
+    .icon-ml  { background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.3); }
+    .icon-dl  { background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.3); }
+    .model-name-text strong { display: block; color: var(--text); font-size: .95rem; font-weight: 700; }
+    .model-name-text span { font-size: .75rem; color: var(--muted); }
+
+    /* category pill */
+    .cat-pill {
+      display: inline-block; padding: .25rem .75rem;
+      border-radius: 999px; font-size: .72rem; font-weight: 700;
+      letter-spacing: .05em; white-space: nowrap;
+    }
+    .cat-ml  { background: rgba(59,130,246,.12); color: #93c5fd; border: 1px solid rgba(59,130,246,.25); }
+    .cat-dl  { background: rgba(139,92,246,.12); color: #c4b5fd; border: 1px solid rgba(139,92,246,.25); }
+
+    /* strengths / limitations */
+    .tag-list { display: flex; flex-direction: column; gap: .35rem; }
+    .tag {
+      display: inline-flex; align-items: flex-start; gap: .4rem;
+      font-size: .82rem; line-height: 1.45; color: var(--dim);
+    }
+    .tag-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: .48em; }
+    .dot-green  { background: #34d399; }
+    .dot-red    { background: #f87171; }
+
+    /* FP column */
+    .fp-label {
+      display: inline-block;
+      padding: .2rem .65rem; border-radius: .35rem;
+      font-size: .74rem; font-weight: 600; margin-bottom: .4rem;
+    }
+    .fp-low  { background: rgba(16,185,129,.12); color: #34d399; border: 1px solid rgba(16,185,129,.2); }
+    .fp-mod  { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+    .fp-high { background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+    .fp-text { font-size: .79rem; color: var(--muted); line-height: 1.4; }
+
+    /* decision cell */
+    .decision {
+      display: flex; flex-direction: column; gap: .5rem;
+    }
+    .dec-badge {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .3rem .85rem; border-radius: 999px;
+      font-size: .78rem; font-weight: 700; letter-spacing: .04em;
+      width: fit-content;
+    }
+    .dec-selected {
+      background: rgba(16,185,129,.15); color: #34d399;
+      border: 1px solid rgba(16,185,129,.35);
+    }
+    .dec-rejected {
+      background: rgba(100,116,139,.1); color: #64748b;
+      border: 1px solid rgba(100,116,139,.2);
+    }
+    .dec-text { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+    .dec-text em { color: #818cf8; font-style: normal; font-weight: 600; }
+
+    /* FP star meter */
+    .fp-stars { display: flex; gap: 3px; margin-top: .3rem; }
+    .star { width: 8px; height: 8px; border-radius: 50%; background: var(--surface3); }
+    .star.on-g { background: #34d399; }
+    .star.on-a { background: #fbbf24; }
+    .star.on-r { background: #f87171; }
+
+    /* footer note */
+    .footer-note {
+      display: flex; align-items: flex-start; gap: 1rem;
+      margin: 2rem 0 0; padding: 1.2rem 1.6rem;
+      background: rgba(59,130,246,.05); border: 1px solid rgba(59,130,246,.15);
+      border-radius: .75rem; font-size: .83rem; color: var(--dim); line-height: 1.6;
+    }
+    .footer-note strong { color: #93c5fd; }
+    code {
+      font-family: 'Fira Code', monospace; font-size: .8em;
+      background: rgba(99,102,241,.15); color: #a5b4fc;
+      padding: .1em .4em; border-radius: .25em;
+    }
+
+    /* responsive */
+    @media (max-width: 900px) {
+      header { padding: 2rem 1.5rem; }
+      header h1 { font-size: 1.8rem; }
+      .table-wrap { padding: 1.5rem 1rem; overflow-x: auto; }
+      .model-table { min-width: 900px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══ -->
+  <header>
+    <div class="project-badge">
+      <span></span>
+      Log Analysis AI &mdash; DevOps Platform
+    </div>
+    <h1>ML / DL Model Selection Analysis</h1>
+    <h2>Anomaly Detection Engine &nbsp;&middot;&nbsp; Comparative Study of Candidate Models</h2>
+    <div class="stats-row">
+      <div class="stat"><span class="stat-num">6</span><span class="stat-lbl">Models Evaluated</span></div>
+      <div class="stat"><span class="stat-num">2</span><span class="stat-lbl">Models Selected</span></div>
+      <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">ML Models</span></div>
+      <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Deep Learning</span></div>
+    </div>
+  </header>
+
+  <!-- ══ LEGEND ══ -->
+  <div class="legend-bar">
+    <div class="leg"><div class="leg-dot ld-selected"></div>Selected &amp; Used in Project</div>
+    <div class="leg"><div class="leg-dot ld-rejected"></div>Evaluated but Not Selected</div>
+    <div class="leg"><div class="leg-dot ld-ml"></div>Machine Learning</div>
+    <div class="leg"><div class="leg-dot ld-dl"></div>Deep Learning</div>
+  </div>
+
+  <!-- ══ TABLE ══ -->
+  <div class="table-wrap">
+    <table class="model-table">
+      <thead>
+        <tr>
+          <th style="width:200px">Model</th>
+          <th style="width:120px">Category</th>
+          <th>Strengths</th>
+          <th>Limitations</th>
+          <th style="width:180px">False Positive Handling</th>
+          <th style="width:260px">Decision &amp; Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- ── Isolation Forest ── -->
+        <tr class="row-rejected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-ml">🌲</div>
+              <div class="model-name-text">
+                <strong>Isolation Forest</strong>
+                <span>Unsupervised Outlier Detection</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-ml">Machine Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>Fast and efficient for outlier detection</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Works well on high-dimensional tabular data</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>No label requirement (unsupervised)</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>Does not capture temporal relationships in logs</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Random partitioning can miss structured anomalies</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-mod">Moderate</span>
+            <div class="fp-stars">
+              <div class="star on-a"></div><div class="star on-a"></div><div class="star on-a"></div><div class="star"></div><div class="star"></div>
+            </div>
+            <div class="fp-text">Moderate false positives due to random partitioning of data across log feature space</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-rejected">✖ Not Selected</div>
+              <div class="dec-text">Our logs contain <em>temporal sequences</em> that require sequence learning. Isolation Forest has no temporal awareness.</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── One-Class SVM ── -->
+        <tr class="row-rejected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-ml">⚙️</div>
+              <div class="model-name-text">
+                <strong>One-Class SVM</strong>
+                <span>Boundary-based Detection</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-ml">Machine Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>Detects anomalies using only normal training data</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Flexible kernel functions for non-linear boundaries</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>High computational cost (O(n²) kernel training)</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Poor scalability on large log datasets</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>No temporal/sequential log modeling</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-low">Low (small sets)</span>
+            <div class="fp-stars">
+              <div class="star on-g"></div><div class="star on-g"></div><div class="star on-a"></div><div class="star"></div><div class="star"></div>
+            </div>
+            <div class="fp-text">Low on small datasets but significantly increases as log data volume grows</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-rejected">✖ Not Selected</div>
+              <div class="dec-text">High computational cost and <em>limited scalability</em> make it impractical for DevOps log volumes.</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── Random Forest ── SELECTED -->
+        <tr class="row-selected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-ml">🌳</div>
+              <div class="model-name-text">
+                <strong>Random Forest</strong>
+                <span>Ensemble Classifier</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-ml">Machine Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>High accuracy on labeled HDFS block datasets</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Easy to train with interpretable feature importance</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Ensemble voting reduces individual tree bias</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Fast inference time at deployment</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>Requires labeled anomaly training data (E1–E29 events)</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Lacks native sequence/temporal awareness</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-low">Good Control</span>
+            <div class="fp-stars">
+              <div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star"></div>
+            </div>
+            <div class="fp-text">Ensemble voting across 100+ decision trees gives strong false positive suppression on HDFS block events</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-selected">✓ Selected</div>
+              <div class="dec-text">Used for <em>HDFS block-level classification</em> (<code>hdfs_rf_model.pkl</code>). Trained on 29 HDFS event templates (E1–E29) for high-precision block anomaly detection.</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── LSTM ── -->
+        <tr class="row-rejected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-dl">🔁</div>
+              <div class="model-name-text">
+                <strong>LSTM</strong>
+                <span>Recurrent Neural Network</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-dl">Deep Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>Learns sequential patterns in time-series log data</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Long-range temporal dependency capture via cell state</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>Requires large amount of labeled training data</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Purely supervised — cannot detect unknown anomaly patterns</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-low">Low</span>
+            <div class="fp-stars">
+              <div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star"></div>
+            </div>
+            <div class="fp-text">Reduces false positives by learning temporal dependencies in training data</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-rejected">✖ Not Selected</div>
+              <div class="dec-text">We required an <em>unsupervised approach</em> to detect unknown anomalies without needing labeled failure data.</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── LSTM Autoencoder ── PRIMARY SELECTED -->
+        <tr class="row-selected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-dl" style="background:rgba(139,92,246,.2);border-color:rgba(139,92,246,.4);">🧠</div>
+              <div class="model-name-text">
+                <strong>LSTM Autoencoder</strong>
+                <span>Unsupervised Deep Learning</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-dl">Deep Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>Learns normal log behavior without anomaly labels</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Captures temporal dependencies via encoder-decoder LSTM</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Detects unknown/novel anomalies via reconstruction error</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Flexible thresholding for adaptive sensitivity</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>Higher training time vs. traditional ML models</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Requires PyTorch runtime environment</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-low">Very Low</span>
+            <div class="fp-stars">
+              <div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div>
+            </div>
+            <div class="fp-text">Reconstruction-error thresholding + hybrid keyword heuristic provides precise anomaly flagging</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-selected">✓ Primary Model</div>
+              <div class="dec-text"><em>Primary anomaly detection model.</em> Performs unsupervised detection — ideal for sequential log analysis without requiring labeled failure data (<code>lstm_model.pt</code>).</div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ── LogBERT ── -->
+        <tr class="row-rejected">
+          <td>
+            <div class="model-name">
+              <div class="model-icon icon-dl">🤖</div>
+              <div class="model-name-text">
+                <strong>LogBERT</strong>
+                <span>Transformer-based Model</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="cat-pill cat-dl">Deep Learning</span></td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-green"></div>Learns contextual relationships across full log sequences</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Achieves state-of-the-art accuracy on benchmark log datasets</div>
+              <div class="tag"><div class="tag-dot dot-green"></div>Bidirectional attention captures rich log semantics</div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag"><div class="tag-dot dot-red"></div>Requires large pretraining datasets for convergence</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>High GPU memory and compute requirements</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Longer training and inference time</div>
+              <div class="tag"><div class="tag-dot dot-red"></div>Complex fine-tuning pipeline</div>
+            </div>
+          </td>
+          <td>
+            <span class="fp-label fp-low">Very Low</span>
+            <div class="fp-stars">
+              <div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div><div class="star on-g"></div>
+            </div>
+            <div class="fp-text">Very low false positives due to deep contextual understanding of full log token sequences</div>
+          </td>
+          <td>
+            <div class="decision">
+              <div class="dec-badge dec-rejected">✖ Not Selected</div>
+              <div class="dec-text">Higher <em>computational cost and complexity</em> exceeds the infrastructure constraints of this DevOps deployment.</div>
+            </div>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <!-- Footer note -->
+    <div class="footer-note">
+      <span style="font-size:1.3rem;flex-shrink:0">💡</span>
+      <div>
+        <strong>Implementation Note:</strong> The selected models are managed by <code>ModelManager</code> in
+        <code>services/model_manager.py</code>. The active model is persisted in <code>models/model_config.json</code>
+        and can be switched at runtime via <code>POST /model/set-model</code>. The LSTM Autoencoder uses a
+        <strong>hybrid detection rule</strong>: anomaly flagged if reconstruction error exceeds the trained threshold
+        <em>or</em> if error keyword count &gt; 0, giving both statistical and heuristic coverage.
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

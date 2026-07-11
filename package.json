@@ -4,7 +4,7 @@
   "description": "Root runner for Logs Guard AI with concurrent backend & frontend servers",
   "main": "index.js",
   "scripts": {
-    "backend": "backend\\venv\\Scripts\\python backend\\app.py",
+    "backend": "backend\\venv311\\Scripts\\python backend\\app.py",
     "frontend": "npm run start --prefix frontend",
     "install:all": "npm install && npm install --prefix frontend",
     "dev": "concurrently --kill-others \"npm run backend\" \"npm run frontend\""

@@ -15,6 +15,7 @@ import { LogAssistant } from './components/LogAssistant';
 import { AnomalyResponse, HistoryItem } from './types';
 import { ModelHub } from './components/ModelHub';
 import { HistoryViewer } from './components/HistoryViewer';
+import { DatabaseExplorer } from './components/DatabaseExplorer';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -27,7 +28,7 @@ const App: React.FC = () => {
     const [externalChatMsg, setExternalChatMsg] = useState<string | undefined>(undefined);
     const [isDiagnosticExpanded, setIsDiagnosticExpanded] = useState(false);
     const [diagnosticFontSize, setDiagnosticFontSize] = useState(14);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'archives'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'archives' | 'database'>('dashboard');
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
     
@@ -297,6 +298,18 @@ const App: React.FC = () => {
                             <Layout size={16} />
                             Ingestion Archives
                         </button>
+
+                        <button 
+                            onClick={() => setActiveTab('database')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                                activeTab === 'database' 
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                                    : 'text-dark-muted hover:text-white hover:bg-[#0d1117]'
+                            }`}
+                        >
+                            <Database size={16} />
+                            Database Explorer
+                        </button>
                     </nav>
                 </div>
 
@@ -337,6 +350,7 @@ const App: React.FC = () => {
                         <h2 className="text-lg font-black text-white uppercase tracking-tight italic">
                             {activeTab === 'dashboard' && 'Cluster Health Dashboard'}
                             {activeTab === 'archives' && 'Local Ingestion Archives'}
+                            {activeTab === 'database' && 'SQLite Database Explorer'}
                         </h2>
                     </div>
 
@@ -784,6 +798,10 @@ const App: React.FC = () => {
                             setResult(historyResult);
                             setActiveTab('dashboard'); // switch to dashboard when loaded
                         }} />
+                    )}
+
+                    {activeTab === 'database' && (
+                        <DatabaseExplorer />
                     )}
                 </main>
             </div>

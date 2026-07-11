@@ -79,29 +79,36 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({ onLoadHistoryResul
       id: record.id,
       timestamp: record.timestamp,
       filename: record.filename,
+      dataset_name: record.dataset_name,
+      dataset_category: record.dataset_category,
       status: record.status,
       confidence: record.confidence,
+      severity_level: record.severity_level,
       reconstruction_error: record.reconstruction_error,
       threshold: record.threshold,
       detected_issue: record.detected_issue,
-      why_it_failed: record.why_it_failed,
+      why_it_failed: record.root_cause || record.why_it_failed,
+      root_cause: record.root_cause || record.why_it_failed,
       failed_node: record.failed_node,
-      possible_fixes: record.possible_fixes,
+      possible_fixes: record.recommendations || record.possible_fixes,
+      recommendations: record.recommendations || record.possible_fixes,
       flow: record.flow,
       features: record.features,
       ai_explanation: record.ai_explanation,
       total_lines_scanned: record.total_lines_scanned,
       error_lines_count: record.error_lines_count,
       model_used: record.model_used,
-      raw_log: fileContent // include the downloaded raw log content
+      raw_log: fileContent
     };
     onLoadHistoryResult(resultObj);
   };
 
   const filteredHistory = historyList.filter(item => 
     item.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.model_used.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.detected_issue.toLowerCase().includes(searchQuery.toLowerCase())
+    (item.dataset_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.model_used || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.detected_issue || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.root_cause || item.why_it_failed || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -132,7 +139,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({ onLoadHistoryResul
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by filename or model..."
+              placeholder="Search by filename, dataset, or issue..."
               className="w-full bg-[#0d1117] text-white placeholder-gray-500 rounded-xl pl-10 pr-4 py-2 text-xs border border-[#30363d] focus:border-blue-500 outline-none transition-all"
             />
           </div>
@@ -171,6 +178,7 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({ onLoadHistoryResul
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition-colors font-mono">{item.filename}</p>
+                      <p className="text-[9px] text-blue-400/80 font-bold uppercase tracking-wider truncate">{item.dataset_name || 'Custom Log Dataset'}</p>
                       <p className="text-[9px] text-dark-muted font-bold uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
                         <Calendar size={10} />
                         {item.timestamp}
@@ -221,8 +229,11 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({ onLoadHistoryResul
               <div className="flex items-center justify-between border-b border-[#30363d] pb-4">
                 <div>
                   <h3 className="text-base font-black text-white uppercase tracking-tight font-mono">{selectedRecord.filename}</h3>
+                  <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">
+                    Dataset: {selectedRecord.dataset_name || 'Custom Log Dataset'}
+                  </p>
                   <p className="text-[10px] text-dark-muted font-bold uppercase tracking-widest mt-1">
-                    Archived: {selectedRecord.timestamp} · Model: {selectedRecord.model_used}
+                    Uploaded: {selectedRecord.timestamp} · Model: {selectedRecord.model_used} · Severity: {selectedRecord.severity_level || 'N/A'}
                   </p>
                 </div>
                 <button
@@ -260,9 +271,24 @@ export const HistoryViewer: React.FC<HistoryViewerProps> = ({ onLoadHistoryResul
                   <p className="text-xs font-bold text-white bg-[#0d1117] p-3.5 rounded-xl border border-[#30363d]">{selectedRecord.detected_issue}</p>
                 </div>
                 <div>
-                  <span className="text-[9px] text-orange-400 font-black block uppercase tracking-wider mb-1">Analysis / Reason</span>
-                  <p className="text-xs font-medium text-gray-300 bg-[#0d1117] p-3.5 rounded-xl border border-[#30363d] leading-relaxed">{selectedRecord.why_it_failed}</p>
+                  <span className="text-[9px] text-orange-400 font-black block uppercase tracking-wider mb-1">Root Cause</span>
+                  <p className="text-xs font-medium text-gray-300 bg-[#0d1117] p-3.5 rounded-xl border border-[#30363d] leading-relaxed">
+                    {selectedRecord.root_cause || selectedRecord.why_it_failed}
+                  </p>
                 </div>
+                {(selectedRecord.recommendations || selectedRecord.possible_fixes || []).length > 0 && (
+                  <div>
+                    <span className="text-[9px] text-green-400 font-black block uppercase tracking-wider mb-1">Recommendations</span>
+                    <ul className="text-xs font-medium text-gray-300 bg-[#0d1117] p-3.5 rounded-xl border border-[#30363d] space-y-2">
+                      {(selectedRecord.recommendations || selectedRecord.possible_fixes).map((fix: string, idx: number) => (
+                        <li key={idx} className="flex gap-2">
+                          <span className="text-green-500 font-black">{idx + 1}.</span>
+                          <span>{fix}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Log File Content Container */}

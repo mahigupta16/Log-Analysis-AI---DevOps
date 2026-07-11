@@ -4,15 +4,19 @@ from pydantic import BaseModel
 from typing import List, Optional, Any
 from anomaly_detector import detect_anomaly
 import os
+import time
 import shutil
 from dotenv import load_dotenv
 from routes.ai_routes import router as ai_router
 from routes.model_routes import router as model_router
 from services.model_manager import model_manager
-from history_db import add_history_record
+from history_db import add_history_record, init_db
 
 # Load environment variables
 load_dotenv(override=True)
+
+# Initialize SQLite database on startup
+init_db()
 
 # Initialize FastAPI app
 app = FastAPI(title="AI Log Intelligence API")
@@ -54,6 +58,9 @@ async def predict(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+
+    # Track how long the full analysis takes
+    analysis_start = time.time()
 
     try:
         # We need the raw log content for AI context later
@@ -128,14 +135,25 @@ Because the prediction accuracy has fallen below the 50% threshold limit, the sy
             if "error" in result:
                 raise HTTPException(status_code=500, detail=result["error"])
             result["model_used"] = "Random Forest Classifier"
-            
+
         # Include raw log in response for the frontend to pass to chat
         result["raw_log"] = raw_log
 
-        # Save to local history JSON database and archive the log file
-        new_record = add_history_record(file.filename, raw_log, result)
+        # Calculate processing time in milliseconds
+        processing_time_ms = int((time.time() - analysis_start) * 1000)
+
+        # Save to SQLite history database and archive the log file
+        new_record = add_history_record(
+            file.filename, raw_log, result,
+            processing_time_ms=processing_time_ms,
+            upload_source="manual",
+        )
         result["id"] = new_record["id"]
         result["timestamp"] = new_record["timestamp"]
+        result["processing_time_ms"] = processing_time_ms
+        result["log_format"] = new_record.get("log_format", "unknown")
+        result["anomaly_score"] = new_record.get("anomaly_score", 0.0)
+        result["tags"] = new_record.get("tags", [])
 
         return result
 
@@ -149,4 +167,5 @@ Because the prediction accuracy has fallen below the 50% threshold limit, the sy
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", 5000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

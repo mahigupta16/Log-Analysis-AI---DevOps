@@ -1,1 +1,9 @@
 datasets/
+
+# Large files - exceed GitHub's 100MB limit
+uploads/
+backend/uploads/
+*.log
+*.csv
+*.zip
+*.tar.gz
