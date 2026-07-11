@@ -29,6 +29,7 @@ const App: React.FC = () => {
     const [diagnosticFontSize, setDiagnosticFontSize] = useState(14);
     const [activeTab, setActiveTab] = useState<'dashboard' | 'archives'>('dashboard');
     const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+
     
     // Viewport-level interactive modals state
     const [selectedNode, setSelectedNode] = useState<{
@@ -370,7 +371,12 @@ const App: React.FC = () => {
                                 <div className={result ? "lg:col-span-4 flex flex-col h-full" : "lg:col-span-5 flex flex-col h-full"}>
                                     {result ? (
                                         <div className="animate-in zoom-in duration-300 h-full flex w-full">
-                                            <AnomalyCard status={result.status} confidence={result.confidence} aiExplanation={result.ai_explanation} />
+                                            <AnomalyCard 
+                                                status={result.status} 
+                                                confidence={result.confidence} 
+                                                accuracy={result.accuracy}
+                                                aiExplanation={result.ai_explanation} 
+                                            />
                                         </div>
                                     ) : (
                                         <div className="bg-[#161b22] border-2 border-dashed border-[#30363d] rounded-[2rem] p-8 flex flex-col items-center justify-center text-center h-full min-h-[220px] flex-grow">

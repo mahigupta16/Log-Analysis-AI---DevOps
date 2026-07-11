@@ -8,6 +8,7 @@ export interface FlowNode {
 export interface AnomalyResponse {
     status: 'normal' | 'anomaly';
     confidence: number;
+    accuracy?: number;
     detected_issue: string;
     failed_node: string;
     why_it_failed: string;

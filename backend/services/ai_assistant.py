@@ -36,7 +36,7 @@ class AIAssistantService:
         if not client:
             return "Error: Gemini API key is not configured. Please set GEMINI_API_KEY in the .env file."
             
-        prompt = f"""You are an expert DevOps engineer.
+        prompt = f"""You are an expert DevOps engineer and Application Developer.
 
 Analyze the following log:
 
@@ -48,8 +48,14 @@ Return:
 2. Possible cause
 3. Severity level
 4. Suggested fixes
-5. Linux commands if needed
+5. Commands if needed
 6. Prevention recommendations
+
+CRITICAL INSTRUCTIONS:
+- If a stack trace or error message is present, pinpoint the EXACT file name, line number, and component where the error occurred (e.g., server.js line 62).
+- Do NOT assume the presence of external systems (like PostgreSQL, MySQL, Docker, or Kubernetes) unless they are explicitly mentioned in the logs.
+- Focus strictly on the exact code, script, or local service failing.
+- Be highly specific and concise. Do not provide generic database troubleshooting if the error is originating from a local application script.
 
 Format your output in professional Markdown. Use headings, bullet points, and code blocks for readability."""
 

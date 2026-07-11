@@ -63,11 +63,11 @@ const LogDataFlow: React.FC<LogDataFlowProps> = ({
         { 
             id: 'result', 
             name: "Diagnosis & Action", 
-            detail: hasErrors ? "Remediations Ready" : "System Safe", 
+            detail: hasErrors ? (confidence < 50 ? "Blocked (Low Accuracy)" : "Remediations Ready") : "System Safe", 
             icon: <Database className="w-6 h-6" />, 
-            color: "text-green-500",
-            bg: "bg-green-500/10",
-            glow: "shadow-green-500/10"
+            color: hasErrors ? (confidence < 50 ? "text-orange-500" : "text-green-500") : "text-green-500",
+            bg: hasErrors ? (confidence < 50 ? "bg-orange-500/10" : "bg-green-500/10") : "bg-green-500/10",
+            glow: hasErrors ? (confidence < 50 ? "shadow-orange-500/10" : "shadow-green-500/10") : "shadow-green-500/10"
         }
     ];
 
@@ -155,7 +155,11 @@ const LogDataFlow: React.FC<LogDataFlowProps> = ({
                     <div className="space-y-1.5">
                         <span className="text-[10px] text-orange-400 font-black uppercase tracking-widest block">2. Feature Counting</span>
                         <p className="leading-relaxed">
-                            The engine extracted features (like occurrence counts of write failures, authentication mismatches, or resource warnings). The AI classifier processed these metrics to determine whether the behavior matches normal operations or deviates significantly.
+                            {confidence < 50 ? (
+                                "The engine extracted system log metrics, but the resulting feature vectors did not contain clear failure signatures. Due to this telemetry ambiguity, the model cannot confidently assign the log to a known issue class."
+                            ) : (
+                                "The engine extracted features (like occurrence counts of write failures, authentication mismatches, or resource warnings). The AI classifier processed these metrics to determine whether the behavior matches normal operations or deviates significantly."
+                            )}
                         </p>
                     </div>
 
@@ -163,9 +167,15 @@ const LogDataFlow: React.FC<LogDataFlowProps> = ({
                         <span className="text-[10px] text-green-400 font-black uppercase tracking-widest block">3. Root Cause Diagnosis</span>
                         <p className="leading-relaxed">
                             {hasErrors ? (
-                                <span>
-                                    <strong>Anomaly Flagged!</strong> The classifier verified an abnormal pattern (<strong>{detectedIssue}</strong>). The failure reason is: <em>"{whyItFailed}"</em>. DevOps remediation workflows have been generated to repair the node.
-                                </span>
+                                confidence < 50 ? (
+                                    <span>
+                                        <strong>Diagnosis Blocked!</strong> The classifier detected minor sequence deviations but was unable to isolate a root cause due to low prediction accuracy (<strong>{confidence}%</strong>). Automated remediation is disabled.
+                                    </span>
+                                ) : (
+                                    <span>
+                                        <strong>Anomaly Flagged!</strong> The classifier verified an abnormal pattern (<strong>{detectedIssue}</strong>). The failure reason is: <em>"{whyItFailed}"</em>. DevOps remediation workflows have been generated to repair the node.
+                                    </span>
+                                )
                             ) : (
                                 <span>
                                     <strong>All Clear.</strong> The AI evaluated the logs and confirmed they follow the healthy system baseline. No event sequence patterns matched known failure codes. Node operations are normal.

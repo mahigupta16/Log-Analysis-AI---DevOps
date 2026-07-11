@@ -36,6 +36,14 @@ const PRESETS = [
 2026-07-06 02:11:15 CRITICAL sshd[4833]: Host 192.168.1.104 blocked. Too many authentication failures (15 failures in 30 seconds). SSH Brute force attack suspected!`
     },
     {
+        name: "Degraded App Response",
+        category: "Response Failure",
+        filename: "unsatisfactory_response.log",
+        content: `2026-07-06 14:05:00 INFO billing_gateway - Received client request to process payment invoice
+2026-07-06 14:05:05 WARNING billing_service - Service processing response delayed. Execution time exceeded threshold limit (5000ms). Response: UNSATISFACTORY / DEGRADED
+2026-07-06 14:05:10 CRITICAL billing_service - Payment transaction processing failed. Service returned 503 Service Unavailable. Client connection terminated prematurely due to server response timeout.`
+    },
+    {
         name: "Normal System Operation",
         category: "Healthy State",
         filename: "normal_system_boot.log",
@@ -93,14 +101,14 @@ const LogUploader: React.FC<LogUploaderProps> = ({ onUpload, isUploading }) => {
     };
 
     return (
-        <div className="bg-[#161b22] border-2 border-[#30363d] rounded-2xl p-8 h-full w-full flex flex-col justify-between shadow-2xl hover:border-blue-500/30 transition-all">
-            <h2 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                <Sparkles className="text-blue-500 w-5 h-5 animate-pulse" />
+        <div className="bg-[#161b22] border-2 border-[#30363d] rounded-2xl p-4 h-full w-full flex flex-col justify-between shadow-2xl hover:border-blue-500/30 transition-all">
+            <h2 className="text-xs font-bold mb-1.5 text-white flex items-center gap-1.5">
+                <Sparkles className="text-blue-500 w-3.5 h-3.5 animate-pulse" />
                 Telemetry Ingestion Area
             </h2>
             
             <div 
-                className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-200 flex flex-col items-center justify-center gap-4
+                className={`relative border-2 border-dashed rounded-xl py-2 px-4 transition-all duration-200 flex flex-col items-center justify-center gap-1
                     \${dragActive ? 'border-blue-500 bg-blue-500/5' : 'border-[#30363d] hover:border-[#8b949e]'}
                     \${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 onDragEnter={handleDrag}
@@ -116,47 +124,47 @@ const LogUploader: React.FC<LogUploaderProps> = ({ onUpload, isUploading }) => {
                     accept=".txt,.log,.csv"
                 />
                 
-                <div className="bg-blue-500/10 p-4 rounded-full">
-                    <Upload className="text-blue-500 w-8 h-8" />
+                <div className="bg-blue-500/10 p-1.5 rounded-full">
+                    <Upload className="text-blue-500 w-5 h-5" />
                 </div>
                 
                 <div className="text-center">
-                    <p className="text-white font-medium">Drag & drop your log file here</p>
-                    <p className="text-sm text-dark-muted">or click to browse files</p>
+                    <p className="text-white font-bold text-[10px]">Drag & drop your log file here</p>
+                    <p className="text-[8px] text-dark-muted">or click to browse files</p>
                 </div>
             </div>
 
             {file && (
-                <div className="mt-4 flex items-center justify-between bg-[#0d1117] p-3 rounded-lg border border-[#30363d]">
+                <div className="mt-1.5 flex items-center justify-between bg-[#0d1117] p-1 px-2 rounded-lg border border-[#30363d]">
                     <div className="flex items-center gap-3">
-                        <FileText className="text-blue-500 w-5 h-5" />
+                        <FileText className="text-blue-500 w-3.5 h-3.5" />
                         <div>
-                            <p className="text-sm font-medium text-white">{file.name}</p>
-                            <p className="text-xs text-dark-muted">{(file.size / 1024).toFixed(2)} KB</p>
+                            <p className="text-[10px] font-medium text-white">{file.name}</p>
+                            <p className="text-[8px] text-dark-muted">{(file.size / 1024).toFixed(2)} KB</p>
                         </div>
                     </div>
                     <button 
                         onClick={() => setFile(null)}
                         className="text-dark-muted hover:text-white"
                     >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3" />
                     </button>
                 </div>
             )}
 
             {/* Quick Simulation Presets */}
-            <div className="mt-6 border-t border-[#30363d] pt-6">
-                <span className="text-[10px] text-dark-muted block uppercase font-black tracking-widest mb-3">Quick Incident Simulation Presets</span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div className="mt-3 border-t border-[#30363d] pt-2.5">
+                <span className="text-[8px] text-dark-muted block uppercase font-black tracking-widest mb-1.5">Quick Incident Simulation Presets</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-1.5">
                     {PRESETS.map((preset, idx) => (
                         <button
                             key={idx}
                             onClick={() => handlePresetClick(preset)}
                             disabled={isUploading}
-                            className="bg-[#0d1117] hover:bg-[#1f242c] text-white border border-[#30363d] hover:border-blue-500/40 p-3 rounded-xl text-left transition-all active:scale-95 disabled:opacity-50"
+                            className="bg-[#0d1117] hover:bg-[#1f242c] text-white border border-[#30363d] hover:border-blue-500/40 p-1.5 py-1 rounded-md text-left transition-all active:scale-95 disabled:opacity-50"
                         >
-                            <span className="text-[8px] text-blue-400 font-black uppercase block mb-0.5">{preset.category}</span>
-                            <span className="text-[10px] font-bold text-gray-300 line-clamp-1 block">{preset.name}</span>
+                            <span className="text-[6px] text-blue-400 font-black uppercase block mb-0.5">{preset.category}</span>
+                            <span className="text-[8px] font-bold text-gray-300 line-clamp-1 block">{preset.name}</span>
                         </button>
                     ))}
                 </div>
